@@ -22,9 +22,9 @@ x_test /= 255
 x_train = np.c_[np.ones(x_train.shape[0]),x_train]
 x_test = np.c_[np.ones(x_test.shape[0]),x_test]
 
-theta1 = np.random.random((511,785))*np.sqrt(2.0/(785+511)) - np.sqrt(2.0/(785+211))
-theta2 = np.random.random((127,512))*np.sqrt(2.0/(512+127)) - np.sqrt(2.0/(512+127))
-theta3 = np.random.random((10,128))*np.sqrt(2.0/(128+10)) - np.sqrt(2.0/(128+10))
+theta1 = np.random.random((511,785))*np.sqrt(2.0/(785+511)) - np.sqrt(2.0/(785+211))/2
+theta2 = np.random.random((127,512))*np.sqrt(2.0/(512+127)) - np.sqrt(2.0/(512+127))/2
+theta3 = np.random.random((10,128))*np.sqrt(2.0/(128+10)) - np.sqrt(2.0/(128+10))/2
 
 #b1 = np.ones((batch_size,500))
 #b2 = np.ones((batch_size,100))
@@ -95,7 +95,6 @@ def softmax(x):
     return np.exp(x) / np.exp(x).sum(axis=0)
     
 def costFunction(theta1,theta2,theta3,X,y):
-    tmp_J = np.zeros((num_classes),float)
     m = y.size
     tmp_y =  np.zeros((m,num_classes),int)
 #    for k in range(0,m):
@@ -119,11 +118,8 @@ def costFunction(theta1,theta2,theta3,X,y):
     #print('a4',a4)
     h = a4
 #    print('h :',h.shape)
-    for k in range (0,num_classes) :
-        J = 1.0/m*(-tmp_y.T[k].dot(np.log(h[:,k]))-(np.ones((m,num_classes),int)-tmp_y).T[k].dot(np.log(np.ones((m),int)-h[:,k])))
-#        print('J : ',J)
-        tmp_J = tmp_J + J
-    loss = np.sum(tmp_J)
+    J = 1.0/m*(-tmp_y*(np.log(h))-(np.ones((m,num_classes),int)-tmp_y)*(np.log(np.ones((m,num_classes),int)-h)))
+    loss = np.sum(J)
     print('loss :' ,loss)
     if np.isnan(loss):
         return np.inf

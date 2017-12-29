@@ -15,7 +15,7 @@ dot = np.dot
 
 batch_size = 64
 num_classes = 10
-epochs = 100
+epochs = 500
 
 # the data, shuffled and split between train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -29,9 +29,9 @@ x_test /= 255
 x_train = np.c_[np.ones(x_train.shape[0]),x_train]
 x_test = np.c_[np.ones(x_test.shape[0]),x_test]
 
-theta1 = np.random.random((511,785))*np.sqrt(2.0/(785+511)) #- np.sqrt(2.0/(785+211))
-theta2 = np.random.random((127,512))*np.sqrt(2.0/(512+127)) #- np.sqrt(2.0/(512+127))
-theta3 = np.random.random((10,128))*np.sqrt(2.0/(128+10)) #- np.sqrt(2.0/(128+10))
+theta1 = np.random.random((511,785))*np.sqrt(2.0/(785+511)) - np.sqrt(2.0/(785+211))/2
+theta2 = np.random.random((127,512))*np.sqrt(2.0/(512+127)) - np.sqrt(2.0/(512+127))/2
+theta3 = np.random.random((10,128))*np.sqrt(2.0/(128+10)) - np.sqrt(2.0/(128+10))/2
 
 #b1 = np.ones((batch_size,500))
 #b2 = np.ones((batch_size,100))
@@ -105,7 +105,6 @@ def softmax(x):
     return np.exp(x) / np.exp(x).sum(axis=0)
     
 def costFunction(theta1,theta2,theta3,X,y):
-    tmp_J = np.zeros((num_classes),float)
     m = y.size
     tmp_y =  np.zeros((m,num_classes),int)
 #    for k in range(0,m):
@@ -129,15 +128,12 @@ def costFunction(theta1,theta2,theta3,X,y):
     #print('a4',a4)
     h = a4
 #    print('h :',h.shape)
-    for k in range (0,num_classes) :
-        J = 1.0/m*(-tmp_y.T[k].dot(np.log(h[:,k]))-(np.ones((m,num_classes),int)-tmp_y).T[k].dot(np.log(np.ones((m),int)-h[:,k])))
-#        print('J : ',J)
-        tmp_J = tmp_J + J
-    loss = np.sum(tmp_J)
+    J = 1.0/m*(-tmp_y*(np.log(h))-(np.ones((m,num_classes),int)-tmp_y)*(np.log(np.ones((m,num_classes),int)-h)))
+    loss = np.sum(J)
     print('loss :' ,loss)
     if np.isnan(loss):
         return np.inf
-    return loss 
+    return loss  
     
 def test_fun(data,label,w1,w2,w3):
     sum_num = label.shape[0]
@@ -210,9 +206,9 @@ for z in range (0,epochs):
 #        b1_d += delta2
 #        b2_d += delta3
 #        b3_d += delta4
-        theta1 = theta1 - 0.06/np.sqrt(z+1)*theta1_d 
-        theta2 = theta2 - 0.04/np.sqrt(z+1)*theta2_d
-        theta3 = theta3 - 0.01/np.sqrt(z+1)*theta3_d
+        theta1 = theta1 - 0.1/(np.sqrt(z)+1)*theta1_d 
+        theta2 = theta2 - 0.05/(np.sqrt(z)+1)*theta2_d
+        theta3 = theta3 - 0.03/(np.sqrt(z)+1)*theta3_d
 #        b1 = b1 - 0.000005*b1_d/x_train.shape[0]
 #        b2 = b2 - 0.000005*b2_d/x_train.shape[0]
 #        b3 = b3 - 0.000005*b3_d/x_train.shape[0]
