@@ -106,3 +106,22 @@ print(drelu(D))
 E = np.random.randint(0,10,size=[10])
 print(E)
 print((E==0) + 0)
+
+
+F = np.random.random((2)) -0.5
+G = np.random.random((2)) -0.5
+H = np.convolve(F,G,'valid')
+print (F,'\n',G,'\n',H)
+
+AA = [1,2,3,4,5,6,7,8,9]
+BB = [5,6,7,8]
+CC = np.convolve(AA,BB,'valid')
+print (AA,'\n',BB,'\n',CC)
+
+AA = np.reshape(AA,(3,3))
+BB = np.reshape(BB,(2,2))
+CC = np.random.random((2,2))
+for i in range(CC.shape[0]):
+    for j in range(CC.shape[1]) :
+        CC[i,j] =np.sum(AA[i:i+2,j:j+2] * BB)
+print (AA,'\n',BB,'\n',CC)

@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue Jan  2 11:20:18 2018
+
+@author: dezhou
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Dec 27 10:43:32 2017
 
 @author: dezhou
@@ -15,7 +22,7 @@ dot = np.dot
 
 batch_size = 64
 num_classes = 10
-epochs = 50
+epochs = 500
 
 # the data, shuffled and split between train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -206,9 +213,9 @@ for z in range (0,epochs):
 #        b1_d += delta2
 #        b2_d += delta3
 #        b3_d += delta4
-        theta1 = theta1 - 0.01/(np.sqrt(z)+1)*theta1_d 
-        theta2 = theta2 - 0.02/(np.sqrt(z)+1)*theta2_d
-        theta3 = theta3 - 0.08/(np.sqrt(z)+1)*theta3_d
+        theta1 = theta1 - 0.1/(np.sqrt(z)+1)*theta1_d 
+        theta2 = theta2 - 0.05/(np.sqrt(z)+1)*theta2_d
+        theta3 = theta3 - 0.03/(np.sqrt(z)+1)*theta3_d
 #        b1 = b1 - 0.000005*b1_d/x_train.shape[0]
 #        b2 = b2 - 0.000005*b2_d/x_train.shape[0]
 #        b3 = b3 - 0.000005*b3_d/x_train.shape[0]

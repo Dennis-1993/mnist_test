@@ -87,7 +87,7 @@ for z in range (0,epochs):
         y = y_train[i:i+batch_size]
         grad = gradient(theta,X,y)
 #        print ('grad',grad)
-        theta = theta - 0.5/(1+i/1000)*grad
+        theta = theta - 0.5/(1+np.sqrt(z))*grad
     test_fun(x_train,y_train,theta)
     loss = costFunction(theta,x_train,y_train)
     print ('loss',loss)
