@@ -21,8 +21,8 @@ x_test = x_test.astype('float32')
 x_train /= 255
 x_test /= 255
 
-Filter1 = np.random.random((32,3,3))*np.sqrt(2/(28*28+32*26*26))
-Filter2 = np.random.random((64,32,3,3))*np.sqrt(2/(32*26*26+64*24*24))
+Filter1 = np.random.random((32,3,3))*np.sqrt(2/(32*3*3))
+Filter2 = np.random.random((64,32,3,3))*np.sqrt(2/(64*32*3*3))
 
 theta1 = np.random.random((128,9216))*np.sqrt(2/(128+9216))
 theta2 = np.random.random((10,128))*np.sqrt(2/(10+128))
@@ -146,7 +146,7 @@ def Conv_grad(A,Filter,s=1,zp=0,bais = 0) :
                 tmp = np.zeros((Width,High))
                 #print ("tmp",tmp.shape)
                 for k in range(A.shape[0]):
-                    tmp += signal.convolve2d(A[k,n,:,:],tmp_F[d,n,:,:],'valid')        
+                    tmp += signal.convolve2d(A[k,n,:,:],tmp_F[k,d,:,:],'valid')        
                 CC[d,n,:,:]= tmp
                 #print (A.shape,'\n',Filter.shape,'\n',CC.shape)    
     CC += bais        
@@ -157,7 +157,7 @@ def mean_pool_fun(A,n=2):
     return z
     
 def mean_pool_back(A,n=2):
-    N = np.ones((n,n))
+    N = np.ones((n,n))/n/n
     Z = np.kron(A,N)
     return Z
     
@@ -211,9 +211,8 @@ def test_fun(data,label,Filter1,Filter2,theta1,theta2):
     a3 = mean_pool_fun(a3)
 
     A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
-
     ZC2 = active_val(theta1,A1)
-    A2 = sigmoid(ZC2)
+    A2  = relu(ZC2)
     ZC3 = active_val(theta2,A2) 
     y = sigmoid(ZC3)        
     for k in range (y.shape[0]) :     
@@ -242,9 +241,8 @@ def costFunction(X,y,Filter1,Filter2,theta1,theta2):
     a3 = mean_pool_fun(a3)
 
     A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
-
     ZC2 = active_val(theta1,A1)
-    A2 = sigmoid(ZC2)
+    A2  = relu(ZC2)
     ZC3 = active_val(theta2,A2) 
     A3 = sigmoid(ZC3)
     h = A3
@@ -263,11 +261,6 @@ for z in range (0,epochs):
 #   convolve 
         s_time = int(time.time())
         
-        theta1_d = np.zeros_like(theta1) 
-        theta2_d = np.zeros_like(theta2)
-        Filter1_d = np.zeros_like(Filter1)
-        Filter2_d = np.zeros_like(Filter2)
-        
         a1 = x_train[i:i+batch_size]
         #print(a1.shape)
         Z2 = Conv(a1,Filter1)
@@ -280,14 +273,13 @@ for z in range (0,epochs):
         a3 = mean_pool_fun(a3)
 
         A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
-
         ZC2 = active_val(theta1,A1)
         #print('ZC2',ZC2.shape)
-        A2 = sigmoid(ZC2)
+        A2  = relu(ZC2)
         #print('A2',A2.shape)
         ZC3 = active_val(theta2,A2)
         #print('ZC3',ZC3.shape) 
-        A3 = sigmoid(ZC3)
+        A3  = sigmoid(ZC3)
         #print('A3',A3.shape)
         
         
@@ -298,30 +290,30 @@ for z in range (0,epochs):
         for k in range(0,num_classes):
             tmp_y[:,k] = ((y==k)+0)
         Delta3 = (A3-tmp_y)
-        Delta2 = dot(Delta3,theta2)*A2*(1-A2)
+        Delta2 = dot(Delta3,theta2)*drelu(ZC2)#*A2*(1-A2)
         #print ('Delta2',Delta2.shape)
-        Delta1 = dot(Delta2,theta1)*A1*(1-A1)
+        Delta1 = dot(Delta2,theta1)
         #print('Delta1',Delta1.shape)
         
         Delta1 = Delta1.reshape((a3.shape))
         
-        delta3 = mean_pool_back(Delta1)
+        delta3 = mean_pool_back(Delta1)*drelu(Z3)
         #print ('delta3',delta3.shape)        
         delta2 = Conv_back(delta3,Filter2,zp=2)*drelu(Z2)
         #print ('delta2',delta2.shape)        
         #delta1 = Conv_back(delta2,Filter1,zp=2)*drelu(a1)
         
-        Filter1_d = Filter1_d + Conv_grad(a1,delta2)/batch_size
-        Filter2_d = Filter2_d + Conv_grad(a2,delta3)/batch_size           
-        Filter1 -= 0.1/(np.sqrt(z)+1)*Filter1_d
-        Filter2 -= 0.05/(np.sqrt(z)+1)*Filter2_d
+        Filter1_d = Conv_grad(a1,delta2)/batch_size
+        Filter2_d = Conv_grad(a2,delta3)/batch_size           
+        Filter1 -= 0.3/(np.sqrt(z)+1)*Filter1_d
+        Filter2 -= 0.2/(np.sqrt(z)+1)*Filter2_d
 
-        theta1_d = theta1_d + dot(Delta2.T,A1)/batch_size 
-        theta2_d = theta2_d + dot(Delta3.T,A2)/batch_size
+        theta1_d = dot(Delta2.T,A1)/batch_size 
+        theta2_d = dot(Delta3.T,A2)/batch_size
 #        theta1_d += 0.01*theta1/batch_size
 #        theta2_d += 0.01*theta2/batch_size
-        theta1 = theta1 - 0.3/(np.sqrt(z)+1)*theta1_d 
-        theta2 = theta2 - 0.1/(np.sqrt(z)+1)*theta2_d
+        theta1 -= 0.3/(np.sqrt(z)+1)*theta1_d 
+        theta2 -= 0.1/(np.sqrt(z)+1)*theta2_d
         
         e_time = int(time.time())    
         print("%02d:%02d:%02d" %((e_time-s_time)/3600,(e_time-s_time)%3600/60,(e_time-s_time)%60))
