@@ -9,25 +9,23 @@ from keras.datasets import mnist
 
 dot = np.dot
 
-batch_size = 128
+batch_size = 64
 num_classes = 10
-epochs = 500
+epochs = 50
 
 # the data, shuffled and split between train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
-print (x_train.shape)
-print (x_test.shape)
 
 x_train = x_train.astype('float32')
 x_test = x_test.astype('float32')
 x_train /= 255
 x_test /= 255
 
-Filter1 = np.random.random((32,3,3))
-Filter2 = np.random.random((64,32,3,3))
+Filter1 = np.random.random((32,3,3))*np.sqrt(2/(28*28+32*26*26))
+Filter2 = np.random.random((64,32,3,3))*np.sqrt(2/(32*26*26+64*24*24))
 
-theta1 = np.random.random((128,9216))
-theta2 = np.random.random((10,128))
+theta1 = np.random.random((128,9216))*np.sqrt(2/(128+9216))
+theta2 = np.random.random((10,128))*np.sqrt(2/(10+128))
 
 def fz(a):
     return a[::-1]
@@ -85,18 +83,91 @@ def Conv(A,Filter,s=1,zp=0,bais = 0) :
     CC += bais        
     return CC
     
-def max_pool_fun(A,n=2):
+def Conv_back(A,Filter,s=1,zp=0,bais = 0) :
+    if Filter.ndim == 3 :   
+        Width = int((A.shape[2] - Filter.shape[1] + 2*zp)/s + 1)
+        High = int((A.shape[3] - Filter.shape[2] + 2*zp)/s + 1)
+        CC = np.zeros((A.shape[0],Width,High))
+        #print (CC.shape)
+        for k in range(CC.shape[0]):
+            tmp = np.zeros((Width,High))
+            for d in range(Filter.shape[0]):
+                   tmp += signal.convolve2d(A[k,d,:,:],Filter[d,:,:],'full')
+            CC[k,:,:]= tmp
+        #print (A.shape,'\n',Filter.shape,'\n',CC.shape)
+                
+    if Filter.ndim == 4 :
+        Width = int((A.shape[2] - Filter.shape[2] + 2*zp)/s + 1)
+        High = int((A.shape[3] - Filter.shape[3] + 2*zp)/s + 1)
+        Depth = Filter.shape[1]
+        #print (Depth,Width,High)
+        CC = np.zeros((A.shape[0],Depth,Width,High))
+        for k in range(CC.shape[0]):
+            for d in range(CC.shape[1]):
+                tmp = np.zeros((Width,High))
+                #print ("tmp",tmp.shape)
+                for n in range(Filter.shape[0]):
+                    tmp += signal.convolve2d(A[k,n,:,:],Filter[n,d,:,:],'full')        
+                CC[k,d,:,:]= tmp
+                #print (A.shape,'\n',Filter.shape,'\n',CC.shape)    
+    CC += bais        
+    return CC 
+    
+def Conv_grad(A,Filter,s=1,zp=0,bais = 0) :
+    
+#    tmp_F = np.zeros_like(Filter)
+    if A.ndim == 3 :   
+        tmp_F = Filter.reshape((Filter.shape[0],Filter.shape[1],Filter.shape[2]*Filter.shape[3]))[:,:,::-1].reshape((Filter.shape[0],Filter.shape[1],Filter.shape[2],Filter.shape[3]))
+#        for d in range(Filter.shape[0]):
+#            tmp_F[d] = FZ(Filter[d])
+        Width = int((A.shape[1] - Filter.shape[2] + 2*zp)/s + 1)
+        High = int((A.shape[2] - Filter.shape[3] + 2*zp)/s + 1)
+        Depth = Filter.shape[1]
+        CC = np.zeros((Depth,Width,High))
+        for d in range(CC.shape[0]):
+            tmp = np.zeros((Width,High))
+            for k in range(A.shape[0]):
+                tmp += signal.convolve2d(A[k],tmp_F[k,d],'valid')
+            CC[d,:,:]=tmp
+            #print (A.shape,'\n',Filter.shape,'\n',CC.shape)
+                
+    if A.ndim == 4 :
+        tmp_F = Filter.reshape((Filter.shape[0],Filter.shape[1],Filter.shape[2]*Filter.shape[3]))[:,:,::-1].reshape((Filter.shape[0],Filter.shape[1],Filter.shape[2],Filter.shape[3]))
+#        for d in range(Filter.shape[0]):
+#            for n in range(Filter.shape[1]):                
+#                tmp_F[d,n,:,:] = FZ(Filter[d,n,:,:])
+        Width = int((A.shape[2] - Filter.shape[2] + 2*zp)/s + 1)
+        High = int((A.shape[3] - Filter.shape[3] + 2*zp)/s + 1)
+        Depth = Filter.shape[1]
+        #print (Depth,Width,High)
+        CC = np.zeros((Depth,A.shape[1],Width,High))
+        for d in range(CC.shape[0]):
+            for n in range(CC.shape[1]):
+                tmp = np.zeros((Width,High))
+                #print ("tmp",tmp.shape)
+                for k in range(A.shape[0]):
+                    tmp += signal.convolve2d(A[k,n,:,:],tmp_F[d,n,:,:],'valid')        
+                CC[d,n,:,:]= tmp
+                #print (A.shape,'\n',Filter.shape,'\n',CC.shape)    
+    CC += bais        
+    return CC  
+    
+def mean_pool_fun(A,n=2):
     z = skimage.measure.block_reduce(A,(1,1,n,n),np.mean)
     return z
     
+def mean_pool_back(A,n=2):
+    N = np.ones((n,n))
+    Z = np.kron(A,N)
+    return Z
+    
 def relu(x) :
     #return np.maximum(0,x)  
-    x[x<0] = 0.1*x[x<0]
-    x[x>0] = x[x>0]
+    x[x<0] = 0
     return x
     
 def drelu(x) :
-    x[x<0]=0.1
+    x[x<0]=0
     x[x>0]=1    
     return x
     
@@ -113,51 +184,151 @@ def dsigmoid(z):
     g = h*(1-h)
     return g
 
-def Conv_forword(X,Filter,activation = relu):
-    Z = Conv(X,Filter)
+def Conv_forword(X,Filter,s=1,zp=0,bais=0,activation = relu):
+    Z = Conv(X,Filter,s,zp,bais)
     a = activation(Z)
     return a
     
-def Conn_forword(X,theta,activation = sigmoid):
-    Z = active_val(theta,X)
+def Conn_forword(X,theta,b=0,activation = sigmoid):
+    Z = active_val(theta,X,b)
     a = activation(Z)
     return a
 
-Conv_forword(x_train[0:batch_size],Filter1)
+#Conv_forword(x_train[0:batch_size],Filter1)
+def test_fun(data,label,Filter1,Filter2,theta1,theta2):
+    sum_num = label.shape[0]
+    right_num = 0
+    
+    a1 = data
+    #print(a1.shape)
+    Z2 = Conv(a1,Filter1)
+    #print('Z2',Z2.shape)
+    a2 = relu(Z2)
+    #a2 = max_pool_fun(a2)
+    Z3 = Conv(a2,Filter2)
+    #print('Z3',Z3.shape)
+    a3 = relu(Z3)
+    a3 = mean_pool_fun(a3)
+
+    A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
+
+    ZC2 = active_val(theta1,A1)
+    A2 = sigmoid(ZC2)
+    ZC3 = active_val(theta2,A2) 
+    y = sigmoid(ZC3)        
+    for k in range (y.shape[0]) :     
+        last_num = np.argmax(y[k])
+        if last_num == label[k]:
+            right_num +=1 
+    print("accuracy",right_num/sum_num)
+    
+def costFunction(X,y,Filter1,Filter2,theta1,theta2):
+    m = y.size
+    tmp_y =  np.zeros((m,num_classes),int)
+#    for k in range(0,m):
+#        tmp_y[k,y[k]] = 1
+    for k in range(0,num_classes):
+        tmp_y[:,k] = ((y==k)+0)
+#    print('y :',tmp_y.shape)
+    a1 = X
+    #print(a1.shape)
+    Z2 = Conv(a1,Filter1)
+    #print('Z2',Z2.shape)
+    a2 = relu(Z2)
+    #a2 = max_pool_fun(a2)
+    Z3 = Conv(a2,Filter2)
+    #print('Z3',Z3.shape)
+    a3 = relu(Z3)
+    a3 = mean_pool_fun(a3)
+
+    A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
+
+    ZC2 = active_val(theta1,A1)
+    A2 = sigmoid(ZC2)
+    ZC3 = active_val(theta2,A2) 
+    A3 = sigmoid(ZC3)
+    h = A3
+#    print('h :',h.shape)
+    J = 1.0/m*(-tmp_y*(np.log(h))-(np.ones((m,num_classes),int)-tmp_y)*(np.log(np.ones((m,num_classes),int)-h)))
+    loss = np.sum(J)
+    print('loss :' ,loss)
+    if np.isnan(loss):
+        return np.inf
+    return loss  
     
 for z in range (0,epochs):
     print ('epoch :',z+1)
 
-    for i in range (0,x_train.shape[0]-batch_size,batch_size) :
+    for i in range (0,1000-batch_size,batch_size) :
 #   convolve 
         s_time = int(time.time())
+        
+        theta1_d = np.zeros_like(theta1) 
+        theta2_d = np.zeros_like(theta2)
+        Filter1_d = np.zeros_like(Filter1)
+        Filter2_d = np.zeros_like(Filter2)
+        
         a1 = x_train[i:i+batch_size]
         #print(a1.shape)
         Z2 = Conv(a1,Filter1)
-        print('Z2',Z2.shape)
+        #print('Z2',Z2.shape)
         a2 = relu(Z2)
         #a2 = max_pool_fun(a2)
         Z3 = Conv(a2,Filter2)
-        print('Z3',Z3.shape)
-        a3 = relu(Z3)
-        a3 = max_pool_fun(a3)
-
-        a3 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
-
-        Z4 = active_val(theta1,a3)
         #print('Z3',Z3.shape)
-        a4 = sigmoid(Z4)
-        #print('a3',a3.shape)
-        Z5 = active_val(theta2,a4)
-        #print('Z4',Z4.shape) 
-        a5 = sigmoid(Z5)
-        print('a5',a5.shape)
+        a3 = relu(Z3)
+        a3 = mean_pool_fun(a3)
+
+        A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
+
+        ZC2 = active_val(theta1,A1)
+        #print('ZC2',ZC2.shape)
+        A2 = sigmoid(ZC2)
+        #print('A2',A2.shape)
+        ZC3 = active_val(theta2,A2)
+        #print('ZC3',ZC3.shape) 
+        A3 = sigmoid(ZC3)
+        #print('A3',A3.shape)
+        
+        
+        y = y_train[i:i+batch_size]
+        tmp_y =  np.zeros((batch_size,num_classes),int)
+#        for k in range(0,batch_size):
+#            tmp_y[k,y[k]] = 1
+        for k in range(0,num_classes):
+            tmp_y[:,k] = ((y==k)+0)
+        Delta3 = (A3-tmp_y)
+        Delta2 = dot(Delta3,theta2)*A2*(1-A2)
+        #print ('Delta2',Delta2.shape)
+        Delta1 = dot(Delta2,theta1)*A1*(1-A1)
+        #print('Delta1',Delta1.shape)
+        
+        Delta1 = Delta1.reshape((a3.shape))
+        
+        delta3 = mean_pool_back(Delta1)
+        #print ('delta3',delta3.shape)        
+        delta2 = Conv_back(delta3,Filter2,zp=2)*drelu(Z2)
+        #print ('delta2',delta2.shape)        
+        #delta1 = Conv_back(delta2,Filter1,zp=2)*drelu(a1)
+        
+        Filter1_d = Filter1_d + Conv_grad(a1,delta2)/batch_size
+        Filter2_d = Filter2_d + Conv_grad(a2,delta3)/batch_size           
+        Filter1 -= 0.1/(np.sqrt(z)+1)*Filter1_d
+        Filter2 -= 0.05/(np.sqrt(z)+1)*Filter2_d
+
+        theta1_d = theta1_d + dot(Delta2.T,A1)/batch_size 
+        theta2_d = theta2_d + dot(Delta3.T,A2)/batch_size
+#        theta1_d += 0.01*theta1/batch_size
+#        theta2_d += 0.01*theta2/batch_size
+        theta1 = theta1 - 0.3/(np.sqrt(z)+1)*theta1_d 
+        theta2 = theta2 - 0.1/(np.sqrt(z)+1)*theta2_d
+        
         e_time = int(time.time())    
         print("%02d:%02d:%02d" %((e_time-s_time)/3600,(e_time-s_time)%3600/60,(e_time-s_time)%60))
+    costFunction(x_train[0:1000],y_train[0:1000],Filter1,Filter2,theta1,theta2)
+    test_fun(x_test[0:1000],y_test[0:1000],Filter1,Filter2,theta1,theta2)
+
         
-#b1 = np.ones((batch_size,500))
-#b2 = np.ones((batch_size,100))
-#b3 = np.ones((batch_size,10))  
 
 
     
@@ -169,70 +340,9 @@ def softmax(x):
     
     return np.exp(x) / np.exp(x).sum(axis=0)
     
-def costFunction(theta1,theta2,theta3,X,y):
-    m = y.size
-    tmp_y =  np.zeros((m,num_classes),int)
-#    for k in range(0,m):
-#        tmp_y[k,y[k]] = 1
-    for k in range(0,num_classes):
-        tmp_y[:,k] = ((y==k)+0)
-#    print('y :',tmp_y.shape)
-    a1 = X
-    #print('a1',a1.shape)
-    Z2 = active_val(theta1,a1)
-    #print ('Z2',Z2.shape)
-    a2 = np.c_[np.ones(m),relu(Z2)]
-    #print('a2',a2.shape)           
-    Z3 = active_val(theta2,a2)
-    #print('Z3',Z3.shape)
-    a3 = np.c_[np.ones(m),relu(Z3)]
-    #print('a3',a3.shape)
-    Z4 = active_val(theta3,a3)
-    #print('Z4',Z4.shape) 
-    a4 = sigmoid(Z4)
-    #print('a4',a4)
-    h = a4
-#    print('h :',h.shape)
-    J = 1.0/m*(-tmp_y*(np.log(h))-(np.ones((m,num_classes),int)-tmp_y)*(np.log(np.ones((m,num_classes),int)-h)))
-    loss = np.sum(J)
-    print('loss :' ,loss)
-    if np.isnan(loss):
-        return np.inf
-    return loss  
-    
-def test_fun(data,label,w1,w2,w3):
-    sum_num = label.shape[0]
-    right_num = 0
-    i=0
-    for value in data :
-
-        Z2 = active_val(w1,value)
-        #print ('C2',ReLu(Z2).shape)
-        a2 = np.r_[np.ones(1),relu(Z2)]
-        #print(a2)
-        Z3 = active_val(w2,a2)
-        #print('Z3',Z3.shape)
-        a3 = np.r_[np.ones(1),relu(Z3)]
-        Z4 = active_val(w3,a3)
-        #print('Z4',Z4.shape) 
-        y = sigmoid(Z4)
-        #print(y)
-        last_num = np.argmax(y)
-        if last_num == label[i]:
-            right_num +=1 
-        i+=1
-    print("accuracy",right_num/sum_num)
 
 
     
     
-    if z%5 == 0 :
-        costFunction(theta1,theta2,theta3,x_train,y_train)
-        test_fun(x_train,y_train,theta1,theta2,theta3)        
-    if z%10 == 0 :
-        test_fun(x_test,y_test,theta1,theta2,theta3)  
-        costFunction(theta1,theta2,theta3,x_test,y_test)
-
-test_fun(x_test,y_test,theta1,theta2,theta3)  
-costFunction(theta1,theta2,theta3,x_test,y_test)    
+   
 
