@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jan  5 16:23:25 2018
+
+@author: dezhou
+"""
+
 
 
 from __future__ import print_function
@@ -224,7 +231,7 @@ def test_fun(data,label,Filter1,Filter2,theta1,theta2):
     Z3 = Conv(a2,Filter2)
     #print('Z3',Z3.shape)
     a3 = relu(Z3)
-    a3 = mean_pool_fun(a3)
+    a3,P1 = max_pool_fun(a3)
 
     A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
     ZC2 = active_val(theta1,A1)
@@ -254,7 +261,7 @@ def costFunction(X,y,Filter1,Filter2,theta1,theta2):
     Z3 = Conv(a2,Filter2)
     #print('Z3',Z3.shape)
     a3 = relu(Z3)
-    a3 = mean_pool_fun(a3)
+    a3,P1 = max_pool_fun(a3)
 
     A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
     ZC2 = active_val(theta1,A1)
@@ -286,7 +293,7 @@ for z in range (0,epochs):
         Z3 = Conv(a2,Filter2)
         #print('Z3',Z3.shape)
         a3 = relu(Z3)
-        a3 = mean_pool_fun(a3)
+        a3,P1 = max_pool_fun(a3)
 
         A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
         
@@ -314,7 +321,7 @@ for z in range (0,epochs):
         
         Delta1 = Delta1.reshape((a3.shape))
         
-        delta3 = mean_pool_back(Delta1)*drelu(Z3)
+        delta3 = max_pool_back(Delta1,P1)*drelu(Z3)
         #print ('delta3',delta3.shape)        
         delta2 = Conv_back(delta3,Filter2,zp=2)*drelu(Z2)
         #print ('delta2',delta2.shape)        
@@ -322,8 +329,8 @@ for z in range (0,epochs):
         
         Filter1_d = Conv_grad(a1,delta2)/batch_size
         Filter2_d = Conv_grad(a2,delta3)/batch_size           
-        Filter1 -= 0.05/(np.sqrt(z)+1)*Filter1_d
-        Filter2 -= 0.03/(np.sqrt(z)+1)*Filter2_d
+        Filter1 -= 0.025/(np.sqrt(z)+1)*Filter1_d
+        Filter2 -= 0.02/(np.sqrt(z)+1)*Filter2_d
 
         theta1_d = dot(Delta2.T,A1)/batch_size 
         theta2_d = dot(Delta3.T,A2)/batch_size

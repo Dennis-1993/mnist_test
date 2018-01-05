@@ -32,6 +32,8 @@ def conv(A,Filter,s=1,zp=0) :
 
 CC = signal.convolve2d(AA,BB,'full')
 print (AA.shape,BB.shape,CC.shape)
+CC = CC.reshape((1,6,6))
+print (CC.shape)
 '''
 def fz(a):
     return a[::-1]
