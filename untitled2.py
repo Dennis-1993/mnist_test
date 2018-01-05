@@ -12,10 +12,11 @@ BB = [5,6,7,8]
 CC = np.convolve(AA,BB,'valid')
 print (AA,'\n',BB,'\n',CC)
 
-AA = np.reshape(AA,(3,3))
-BB = np.reshape(BB,(2,2))
-CC = np.random.random((2,2))
-
+#AA = np.reshape(AA,(4,4))
+#BB = np.reshape(BB,(3,3))
+#CC = np.random.random((2,2))
+AA = np.arange(16).reshape((4,4))
+BB = np.arange(9).reshape((3,3))
 def conv(A,Filter,s=1,zp=0) :
     Width = int((A.shape[0] - Filter.shape[0] + 2*zp)/s + 1)
     High = int((A.shape[1] - Filter.shape[1] + 2*zp)/s + 1)
@@ -27,10 +28,11 @@ def conv(A,Filter,s=1,zp=0) :
             print (A,'\n',Filter,'\n',CC)
     return CC
 
-conv(AA,BB)
-print (AA.shape,BB.shape)
-print (signal.convolve2d(AA,BB,'full'))
+#conv(AA,BB)
 
+CC = signal.convolve2d(AA,BB,'full')
+print (AA.shape,BB.shape,CC.shape)
+'''
 def fz(a):
     return a[::-1]
 def FZ(mat):
@@ -140,3 +142,4 @@ print ('A3 :\n ',AA,'\n B3 :\n',BB,'\n C3 :\n',CC)
 
 CC = signal.convolve(AA[0],BB[0],'valid')
 print ('AA :\n ',AA,'\n BB :\n',BB,'\n CC :\n',CC)
+'''

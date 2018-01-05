@@ -21,11 +21,11 @@ x_test = x_test.astype('float32')
 x_train /= 255
 x_test /= 255
 
-Filter1 = np.random.random((32,3,3))*np.sqrt(2/(32*3*3))
-Filter2 = np.random.random((64,32,3,3))*np.sqrt(2/(64*32*3*3))
+Filter1 = np.random.random((32,3,3))*np.sqrt(2/(28*28+26*26)) - np.sqrt(2/(28*28+26*26))/2
+Filter2 = np.random.random((64,32,3,3))*np.sqrt(2/(26*26+24*24)) - np.sqrt(2/(26*26+24*24))/2
 
-theta1 = np.random.random((128,9216))*np.sqrt(2/(128+9216))
-theta2 = np.random.random((10,128))*np.sqrt(2/(10+128))
+theta1 = np.random.random((128,9216))*np.sqrt(2/(128+9216)) - np.sqrt(2/(128+9216))/2
+theta2 = np.random.random((10,128))*np.sqrt(2/(10+128)) - np.sqrt(2/(10+128))/2
 
 def fz(a):
     return a[::-1]
@@ -141,6 +141,7 @@ def Conv_grad(A,Filter,s=1,zp=0,bais = 0) :
         Depth = Filter.shape[1]
         #print (Depth,Width,High)
         CC = np.zeros((Depth,A.shape[1],Width,High))
+        #print(CC.shape)
         for d in range(CC.shape[0]):
             for n in range(CC.shape[1]):
                 tmp = np.zeros((Width,High))
@@ -149,7 +150,8 @@ def Conv_grad(A,Filter,s=1,zp=0,bais = 0) :
                     tmp += signal.convolve2d(A[k,n,:,:],tmp_F[k,d,:,:],'valid')        
                 CC[d,n,:,:]= tmp
                 #print (A.shape,'\n',Filter.shape,'\n',CC.shape)    
-    CC += bais        
+    CC += bais
+    #print('CC',CC.shape)       
     return CC  
     
 def mean_pool_fun(A,n=2):
@@ -257,7 +259,7 @@ def costFunction(X,y,Filter1,Filter2,theta1,theta2):
 for z in range (0,epochs):
     print ('epoch :',z+1)
 
-    for i in range (0,1000-batch_size,batch_size) :
+    for i in range (0,2560-batch_size,batch_size) :
 #   convolve 
         s_time = int(time.time())
         
@@ -273,6 +275,7 @@ for z in range (0,epochs):
         a3 = mean_pool_fun(a3)
 
         A1 = a3.reshape((a3.shape[0],a3.shape[1]*a3.shape[2]*a3.shape[3]))
+        
         ZC2 = active_val(theta1,A1)
         #print('ZC2',ZC2.shape)
         A2  = relu(ZC2)
@@ -305,15 +308,15 @@ for z in range (0,epochs):
         
         Filter1_d = Conv_grad(a1,delta2)/batch_size
         Filter2_d = Conv_grad(a2,delta3)/batch_size           
-        Filter1 -= 0.3/(np.sqrt(z)+1)*Filter1_d
-        Filter2 -= 0.2/(np.sqrt(z)+1)*Filter2_d
+        Filter1 -= 0.03/(np.sqrt(z)+1)*Filter1_d
+        Filter2 -= 0.02/(np.sqrt(z)+1)*Filter2_d
 
         theta1_d = dot(Delta2.T,A1)/batch_size 
         theta2_d = dot(Delta3.T,A2)/batch_size
 #        theta1_d += 0.01*theta1/batch_size
 #        theta2_d += 0.01*theta2/batch_size
-        theta1 -= 0.3/(np.sqrt(z)+1)*theta1_d 
-        theta2 -= 0.1/(np.sqrt(z)+1)*theta2_d
+        theta1 -= 0.02/(np.sqrt(z)+1)*theta1_d 
+        theta2 -= 0.01/(np.sqrt(z)+1)*theta2_d
         
         e_time = int(time.time())    
         print("%02d:%02d:%02d" %((e_time-s_time)/3600,(e_time-s_time)%3600/60,(e_time-s_time)%60))
